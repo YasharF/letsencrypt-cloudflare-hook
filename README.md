@@ -46,7 +46,7 @@ $ export CF_KEY='  K9uX2HyUjeWg5AhAtreb fdsfjhFdaKls45354kHJ9hsj'
 Optionally, you can specify the DNS servers to be used for propagation checking via the `CF_DNS_SERVERS` environment variable (props [bennettp123](https://github.com/bennettp123)):
 
 ```
-$ export CF_DNS_SERVERS='8.8.8.8 8.8.4.4'
+$ export CF_DNS_SERVERS='1.1.1.1 1.0.0.1'
 ```
 
 If you experience problems with DNS propagation, increasing the time (in seconds) this hook waits for things to settle down after setting the DNS records, may help. The default is 10.
@@ -132,7 +132,7 @@ export CF_EMAIL='user@example.com'
 export CF_KEY='K9uX2HyUjeWg5AhAb'
 export DOMAIN='my.domain.com'
 
-export CF_DNS_SERVERS='8.8.8.8 8.8.4.4'
+export CF_DNS_SERVERS='1.1.1.1 1.0.0.1'
 # export CF_DEBUG='true'
 
 dehydrated/dehydrated -c -d $DOMAIN  -t dns-01 -k 'dehydrated/hooks/cloudflare/hook.py'
