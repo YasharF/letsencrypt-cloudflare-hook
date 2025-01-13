@@ -1,8 +1,22 @@
 # CloudFlare hook for `dehydrated`
 
-This is a hook for the [Let's Encrypt](https://letsencrypt.org/) ACME client [dehydrated](https://github.com/lukas2511/dehydrated) that allows you to use [CloudFlare](https://www.cloudflare.com/) DNS records to respond to `dns-01` challenges. This script requires Python and as well as your CloudFlare account e-mail and API key (as environment variables).
+This is a hook for the [Let's Encrypt](https://letsencrypt.org/) ACME client [dehydrated](https://github.com/dehydrated-io/dehydrated) that allows you to use [CloudFlare](https://www.cloudflare.com/) DNS records to respond to `dns-01` challenges. This script requires Python and as well as your CloudFlare account e-mail and API key (as environment variables).
 
-## WSL, Ubuntu, and potentially Debian prerequisites
+## Table of Contents
+- [System Prerequisites](#system-prerequisites)
+- [Installation](#installation-and-usage-without-a-python-virtual-environment)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Using Virtual Environments and Scripting](#installation-with-python-virtual-envs-and-bash-script-for-quick-re-runs)
+- [Testing](#testing)
+
+## System Prerequisites
+
+- Python 3.x
+- pip (Python package installer)
+- git
+
+### WSL, Ubuntu, and potentially Debian prerequisites
 You may need to install the following two packages in addition to Python 3 if you run into issues during the Installation:
 
 ```
@@ -11,10 +25,12 @@ sudo apt install python3-pip python-is-python3
 
 
 ## Installation and usage without a Python virtual environment
+It is highly recommanded to use Python Virtual Environmnets instead of the installation and usage steps in this section.  See [Installation with Python virtual envs and bash script for quick re-runs](#installation-with-python-virtual-envs-and-bash-script-for-quick-re-runs) for more information.
+
 
 ```
 $ cd ~
-$ git clone https://github.com/lukas2511/dehydrated
+$ git clone https://github.com/dehydrated-io/dehydrated
 $ cd dehydrated
 $ mkdir hooks
 $ git clone https://github.com/SeattleDevs/letsencrypt-cloudflare-hook hooks/cloudflare
@@ -28,22 +44,29 @@ $ pip3 install -r hooks/cloudflare/requirements.txt
 
 ### Configuration
 
+An API token from your Cloudflare account is required. If you are currently using an email and your Cloudflare account's global API Key for authentication, please migrate to using an API token. API tokens are more secure as they follow the principles of least privilege and reduce the potential impact of malicious actors if your account key is compromised. To create an API token for this hook, go to https://dash.cloudflare.com/profile/api-tokens (API token page under your Cloudflare "My Profile"). Then, click on "Create API Token" to start.
+
+-  Type a name for your API token for easy identification, such as "Dehydrated Let's Encrypt Hook"
+-  Add Read permission for Zone -> Zone
+-  Add Edit permission for Zone -> DNS
+-  If you have multiple domains in your account, you can use Zone inclusion or exclusion to limit the API token's access to them
+-  It is highly recommended to limit the API access to your IP address or subnet using the Client IP Address Filtering
+-  Once you have completed the above steps, press the "Continue to summary" button and then "Create Token."
+
 Your account's CloudFlare email and API key are expected to be in the environment, so make sure to:
 
 ```
-$ export CF_EMAIL='user@example.com'
-$ export CF_KEY='K9uX2HyUjeWg5AhAb'
+$ export CF_API_TOKEN='zzle8imobfxpg50sdb3c'
 ```
 
-You can supply multiple account credentials by separating them with one or more spaces.  Accounts will be tried in the order given, until one is found that serves the relevant domain.
+You can supply multiple API keys by separating them with one or more spaces. API keys will be tried in the order given, until one is found that has permissions for the relevant domain.
 Leading, trailing, and extra spaces are ignored, so you can vertically align credential pairs for easy reading:
 
 ```
-$ export CF_EMAIL='user1@example.com    user2@somewhere.com'
-$ export CF_KEY='  K9uX2HyUjeWg5AhAtreb fdsfjhFdaKls45354kHJ9hsj'
+$ export CF_API_TOKEN='zzle8imobfxpg50sdb3c txjo6e779dxhpa8yofft'
 ```
 
-Optionally, you can specify the DNS servers to be used for propagation checking via the `CF_DNS_SERVERS` environment variable (props [bennettp123](https://github.com/bennettp123)):
+Optionally, you can specify the DNS servers to be used for propagation checking via the `CF_DNS_SERVERS` environment variable. The following are the IPs for the Cloudflare DNS Servers in case if you would like to use them instead of your client's default DNS configs:
 
 ```
 $ export CF_DNS_SERVERS='1.1.1.1 1.0.0.1'
@@ -64,8 +87,7 @@ $ export CF_DEBUG='true'
 Alternatively, these statements can be placed in `dehydrated/config`, which is automatically sourced by `dehydrated` on startup:
 
 ```
-echo "export CF_EMAIL=user@example.com" >> config
-echo "export CF_KEY=K9uX2HyUjeWg5AhAb" >> config
+echo "export CF_API_TOKEN=zzle8imobfxpg50sdb3c" >> config
 echo "export CF_DEBUG=true" >> config
 ```
 
@@ -107,7 +129,7 @@ The following will install dehydrated in `cert_workspace` folder under your home
 $ cd ~
 $ mkdir cert_workspace
 $ cd cert_workspace
-$ git clone https://github.com/lukas2511/dehydrated
+$ git clone https://github.com/dehydrated-io/dehydrated
 $ cd dehydrated
 $ mkdir hooks
 $ git clone https://github.com/SeattleDevs/letsencrypt-cloudflare-hook hooks/cloudflare
@@ -128,8 +150,7 @@ You can take a shortcut by creating a bash script (such as `domaincert.sh` in `~
 ```
 #!/bin/bash
 
-export CF_EMAIL='user@example.com'
-export CF_KEY='K9uX2HyUjeWg5AhAb'
+export CF_API_TOKEN='zzle8imobfxpg50sdb3c'
 export DOMAIN='my.domain.com'
 
 export CF_DNS_SERVERS='1.1.1.1 1.0.0.1'
@@ -181,13 +202,27 @@ $ (dehydrated_env) ./domaincert.sh
 ```
 
 
-## Testing (unit test)
+## Testing
+### Unit Tests
 If you are making changes to the code, run the unit tests with `tox` to make sure your changes aren't breaking the hook.
 
 ```
 $ (dehydrated_env) cd hooks/cloudflare
 $ (dehydrated_env) pip install tox
 $ (dehydrated_env) tox
+```
+
+### Integration Testing
+If you are making changes to the code, you can do a full test with real calls through dehydrated and Let's Encrypt's test servers. The test servers won't issue a valid certificate, but have a higher rate limit which allows you to test your hook changes without using up your production quota.
+
+If you haven't used Let's Encrypt's test server before, you will need to accept its terms of service. Assuming you are aware of the terms and would like to accept them, you can do so using the following command:
+```
+$ ./dehydrated --register --accept-terms --ca letsencrypt-test
+```
+
+2. You need to add `--ca letsencrypt-test --force --force-validation` to the dehydrated parameters when calling it. This ensures the use of the test servers, tells dehydrated to ignore the 30-day protection limit, and skips previously cached domain verifications with Cloudflare so the verification process is re-run.
+```
+$ ./dehydrated -c --ca letsencrypt-test --force --force-validation -d example.com -t dns-01 -k 'hooks/cloudflare/hook.py'
 ```
 
 ## Further reading

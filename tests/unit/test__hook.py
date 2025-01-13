@@ -26,12 +26,23 @@ CF_API_SCHEME = "https"
 
 
 class TestBase(testtools.TestCase):
-
     def setUp(self):
         super(TestBase, self).setUp()
+    def setup_api_token_auth(self):
+        if 'CF_EMAIL' in os.environ: del os.environ['CF_EMAIL']
+        if 'CF_KEY' in os.environ: del os.environ['CF_KEY']
+        os.environ['CF_API_TOKEN'] = "a_cloudflare_api_token"
         self.expected_headers = {
             'Content-Type': 'application/json',
-            'X-Auth-Email': "email@example'com",
+            'Authorization': 'Bearer a_cloudflare_api_token',
+        }
+    def setup_legacy_auth(self):
+        if 'CF_API_TOKEN' in os.environ: del os.environ['CF_API_TOKEN']
+        os.environ['CF_EMAIL'] = "email@example.com"
+        os.environ['CF_KEY'] = "a_cloudflare_example_key"
+        self.expected_headers = {
+            'Content-Type': 'application/json',
+            'X-Auth-Email': "email@example.com",
             'X-Auth-Key': 'a_cloudflare_example_key',
         }
 

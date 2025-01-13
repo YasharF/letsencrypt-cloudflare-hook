@@ -18,14 +18,30 @@ if os.environ.get('CF_DEBUG'):
 else:
     logger.setLevel(logging.INFO)
 
+# Initialize empty headers list
+CF_HEADERS = []
+
+# Check for API token first
 try:
-    CF_HEADERS = [{
-        'X-Auth-Email': e,
-        'X-Auth-Key'  : k,
+    CF_HEADERS.extend([{
+        'Authorization': f'Bearer {api_token}',
         'Content-Type': 'application/json',
-    } for e,k in zip(os.environ['CF_EMAIL'].split(), os.environ['CF_KEY'].split()) ]
+    } for api_token in os.environ['CF_API_TOKEN'].split()])
 except KeyError:
-    logger.error(" + Unable to locate Cloudflare credentials in environment!")
+    # If no API token, try email/key authentication
+    try:
+        CF_HEADERS.extend([{
+            'X-Auth-Email': email,
+            'X-Auth-Key': api_key,
+            'Content-Type': 'application/json',
+        } for email, api_key in zip(os.environ['CF_EMAIL'].split(), os.environ['CF_KEY'].split())])
+    except KeyError:
+        logger.error(" + Unable to locate Cloudflare credentials in environment!")
+        logger.error(" + Please set the CF_API_TOKEN environment variable with your API token.")
+        sys.exit(1)
+
+if not CF_HEADERS:
+    logger.error(" + No valid Cloudflare credentials found in environment!")
     sys.exit(1)
 
 try:
@@ -35,14 +51,14 @@ except KeyError:
     dns_servers = False
 
 
-def _has_dns_propagated(name, token):
+def _has_dns_propagated(domain_name, token):
     try:
         if dns_servers:
             custom_resolver = dns.resolver.Resolver()
             custom_resolver.nameservers = dns_servers
-            dns_response = custom_resolver.resolve(name, 'TXT')
+            dns_response = custom_resolver.resolve(domain_name, 'TXT')
         else:
-            dns_response = dns.resolver.resolve(name, 'TXT')
+            dns_response = dns.resolver.resolve(domain_name, 'TXT')
 
         for rdata in dns_response:
             if token in [b.decode('utf-8') for b in rdata.strings]:
@@ -64,7 +80,10 @@ def _get_zone_id(domain):
         r = r.json().get('result',())
         if r:
             return auth, r[0]['id']
-    logger.error(" + Domain {0} not found in any Cloudflare account".format(tld))
+    if 'CF_API_TOKEN' in os.environ:
+        logger.error(f"\033[91mERROR:\033[0m None of the provided API Tokens have the required permissions for the domain {tld}")
+    else:
+        logger.error(f"\033[91mERROR:\033[0m Domain {tld} not found in any Cloudflare account")
     sys.exit(1)
 
 # https://api.cloudflare.com/#dns-records-for-a-zone-dns-record-details
@@ -167,6 +186,10 @@ def delete_all_txt_records(args):
         delete_txt_record(args[i:i+X])
 
 def startup_hook(args):
+    if 'CF_API_TOKEN' in os.environ and ('CF_EMAIL' in os.environ or 'CF_KEY' in os.environ):
+        print("\033[93m + Warning: Both CF_API_TOKEN and CF_EMAIL/CF_KEY environment variables are set.\n   CF_EMAIL and CF_KEY environment variables are no longer needed for this script.\n   You may consider removing them from your environment.\033[0m")
+    elif 'CF_EMAIL' in os.environ or 'CF_KEY' in os.environ:
+        print("\033[93m + Using Cloudflare account email/key authentication (CF_EMAIL and CF_KEY environment variables).\n   We are planning to deprecate this authentication method. Please switch to API tokens for enhanced security.\n   See the README for more information.\033[0m")
     return
 
 def exit_hook(args):
